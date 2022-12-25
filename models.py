@@ -55,7 +55,7 @@ class InOutCampus(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     stu_number = Column(BigInteger, ForeignKey("student.stu_number"))
-    status = Column(Enum('进校', '出校'))
+    status = Column(Enum('进校', '离校'))
     date = Column(DateTime)
     campus_id = Column(BigInteger, ForeignKey("campus.id"))
 
@@ -65,12 +65,14 @@ class InOutCampus(Base):
     # 校区
     campus = relationship("Campus")
 
+    def __repr__(self):
+        return f'<InOutCampus {self.stu_number} {self.status} {self.date} {self.campus_id}>'
 
 # 健康日报表
 class HealthReport(Base):
     __tablename__ = "health_report"
 
-    id = Column(String, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     stu_number = Column(BigInteger, ForeignKey("student.stu_number"))
     date = Column(Date)
     temperature = Column(Float)
@@ -88,16 +90,20 @@ class ApplyForEnterSchool(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     stu_number = Column(BigInteger, ForeignKey("student.stu_number"))
-    handlers = Column(BigInteger)
+    handlers = Column(String(100))
+    handlers_id = Column(BigInteger)
     handle_time = Column(DateTime)
     handle_reason = Column(String(100))
-    final_suggestion = Column(Enum('同意', '拒绝'))
-    status = Column(String(100))
+    final_suggestion = Column(Enum('同意', '不同意'))
+    status = Column(Enum('待审核', '已同意', '已拒绝'))
     return_school_reason = Column(String(100))
-    estimated_return_school_time = Column(Date)
+    estimated_return_school_time = Column(DateTime)
     location_of_seven_days = Column(String(100))
     level = Column(Enum('辅导员', '院系管理员'))
-
+    pipeline_id = Column(BigInteger)
+    suggestion=Column(String(100))
+    submit_time=Column(DateTime)
+    out_date_flag=Column(Boolean)
     # 学生
     student = relationship("Student")
 
@@ -111,18 +117,26 @@ class ApplyForLeaveSchool(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     stu_number = Column(BigInteger, ForeignKey("student.stu_number"))
-    handlers = Column(BigInteger)
+    handlers = Column(String(100))
+    handlers_id = Column(BigInteger)
     handle_time = Column(DateTime)
     handle_reason = Column(String(100))
-    final_suggestion = Column(Enum('同意', '拒绝'))
-    status = Column(String(100))
-    leave_school_reason = Column(String(100))
-    estimated_leave_school_time = Column(Date)
-    location_of_seven_days = Column(String(100))
+    final_suggestion = Column(Enum('同意', '不同意'))
+    status = Column(Enum('待审核', '已同意', '已拒绝'))
+    leave_reason = Column(String(100))
+    destination = Column(String(100))
+    departure_date = Column(DateTime)
+    estimated_return_time = Column(DateTime)
     level = Column(Enum('辅导员', '院系管理员'))
-
+    pipeline_id = Column(BigInteger)
+    suggestion = Column(String(100))
+    submit_time = Column(DateTime)
+    out_date_flag=Column(Boolean)
     # 学生
     student = relationship("Student")
+
+    def __repr__(self):
+        return f'<{self.pipeline_id} {self.stu_number} {self.handlers} {self.status} {self.leave_reason} {self.destination} {self.departure_date} {self.estimated_return_time}, {self.level}>'
 
 
 # 辅导员表
@@ -139,6 +153,9 @@ class Counselor(Base):
 
     # 班级 一对一
     class_ = relationship("Class", backref=backref("counselor", uselist=False))
+
+    def __repr__(self):
+        return f'<Counselor {self.teacher_name} {self.department_id} {self.class_id}>'
 
 
 # 院系管理员表
@@ -160,6 +177,7 @@ class Class(Base):
     id = Column(BigInteger, primary_key=True, index=True)
     class_name = Column(String(100))
     department_id = Column(BigInteger, ForeignKey("department.id"))
+    counselor_id = Column(BigInteger)
 
     # 院系
     department = relationship("Department")
@@ -171,5 +189,6 @@ class Department(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     department_name = Column(String(100))
+    department_admin_id = Column(BigInteger)
 
 
