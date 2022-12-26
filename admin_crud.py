@@ -4,14 +4,18 @@ import time
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+import crud
 import models
 import schemas
 from sqlalchemy.sql import distinct
 
 
-def get_all_student_enter_school_of_department(id:int,db: Session):
+def get_all_student_enter_school_of_department(id: int, db: Session):
     data = []
-    for enter_school in db.query(models.ApplyForEnterSchool).filter(models.ApplyForEnterSchool.stu_number.in_(db.query(models.Student.stu_number).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(models.Class.department_id == id))))).all():
+    for enter_school in db.query(models.ApplyForEnterSchool).filter(models.ApplyForEnterSchool.stu_number.in_(
+            db.query(models.Student.stu_number).filter(models.Student.class_id.in_(
+                    db.query(models.Class.id).filter(models.Class.department_id == id))))).filter(
+            models.ApplyForEnterSchool.level == '院系管理员').all():
         if enter_school.handle_time is None:
             handle_time = ''
         else:
@@ -39,14 +43,15 @@ def get_all_student_enter_school_of_department(id:int,db: Session):
     return data
 
 
-def get_all_student_leave_school_time_of_department(id:int,db: Session):
+def get_all_student_leave_school_time_of_department(id: int, db: Session):
     data = []
     if is_leap_year(datetime.datetime.now().year - 1):
         days = 366
     else:
         days = 365
     year_ago = datetime.datetime.now() - datetime.timedelta(days=days)
-    for student in db.query(models.Student).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(models.Class.department_id == id))).all():
+    for student in db.query(models.Student).filter(
+            models.Student.class_id.in_(db.query(models.Class.id).filter(models.Class.department_id == id))).all():
         leave_school_time = schemas.StudentLeaveSchoolTimeOfYear(stu_number=student.stu_number,
                                                                  stu_name=student.stu_name, leave_time='')
         delta = 0
@@ -74,13 +79,13 @@ def is_leap_year(year):
         return False
 
 
-def get_all_student_leave_school_no_pass_of_department(id:int,days: int, db: Session):
+def get_all_student_leave_school_no_pass_of_department(id: int, days: int, db: Session):
     n_days_ago = datetime.datetime.now() - datetime.timedelta(days=days)
     data = schemas.StudentLeaveSchoolNoPassOfNDays(total=0, list=[])
     for leave_school in db.query(models.ApplyForLeaveSchool).filter(models.ApplyForLeaveSchool.status == '待审核'). \
             filter(models.ApplyForLeaveSchool.submit_time > n_days_ago, models.ApplyForLeaveSchool.stu_number.in_(
         db.query(models.Student.stu_number).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(
-            models.Class.department_id == id))))).all():
+            models.Class.department_id == id))))).filter(models.ApplyForLeaveSchool.level == '院系管理员').all():
         if leave_school.handle_time is None:
             handle_time = ''
         else:
@@ -111,13 +116,13 @@ def get_all_student_leave_school_no_pass_of_department(id:int,days: int, db: Ses
     return data
 
 
-def get_all_student_enter_school_no_pass_of_department(id:int,days: int, db: Session):
+def get_all_student_enter_school_no_pass_of_department(id: int, days: int, db: Session):
     n_days_ago = datetime.datetime.now() - datetime.timedelta(days=days)
     data = schemas.StudentEnterSchoolNoPassOfNDays(total=0, list=[])
     for enter_school in db.query(models.ApplyForEnterSchool).filter(models.ApplyForEnterSchool.status == '待审核'). \
             filter(models.ApplyForEnterSchool.submit_time > n_days_ago, models.ApplyForEnterSchool.stu_number.in_(
         db.query(models.Student.stu_number).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(
-            models.Class.department_id == id))))).all():
+            models.Class.department_id == id))))).filter(models.ApplyForEnterSchool.level == '院系管理员').all():
         if enter_school.handle_time is None:
             handle_time = ''
         else:
@@ -152,7 +157,7 @@ def get_apply_for_enter_count(stu_number: int, db: Session):
         models.ApplyForEnterSchool.stu_number == stu_number).count()
 
 
-def get_all_student_apply_for_enter_count_in_department(id:int,num: int, db: Session):
+def get_all_student_apply_for_enter_count_in_department(id: int, num: int, db: Session):
     data = []
     for student in db.query(models.Student).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(
             models.Class.department_id == id))).all():
@@ -167,15 +172,18 @@ def get_all_student_apply_for_enter_count_in_department(id:int,num: int, db: Ses
 
 
 def get_all_student_apply_for_enter_count_in_class(id: int, num: int, db: Session):
-    stu = []
-    for student in db.query(models.Student).filter(models.Student.class_id == id).all():
-        student.apply_for_enter_count = get_apply_for_enter_count(student.stu_number, db)
-        stu.append(schemas.StudentApplyCount(stu_number=student.stu_number, stu_name=student.stu_name,
-                                              total=student.apply_for_enter_count))
-        stu.sort(key=lambda x: x.total, reverse=True)
-    if len(stu) > num:
-        stu = stu[:num]
-    return schemas.StudentApplyCountOfClass(stu=stu, class_id=id)
+    data = []
+    for class_ in db.query(models.Class).filter(models.Class.department_id == id).all():
+        stu = []
+        for student in db.query(models.Student).filter(models.Student.class_id == class_.id).all():
+            student.apply_for_enter_count = get_apply_for_enter_count(student.stu_number, db)
+            stu.append(schemas.StudentApplyCount(stu_number=student.stu_number, stu_name=student.stu_name,
+                                                 total=student.apply_for_enter_count))
+            stu.sort(key=lambda x: x.total, reverse=True)
+        if len(stu) > num:
+            stu = stu[:num]
+        data.append(schemas.StudentApplyCountOfClass(stu=stu, class_id=class_.id))
+    return data
 
 
 def get_student_average_leave_time(stu_number: int, db: Session):
@@ -199,7 +207,6 @@ def get_student_average_leave_time(stu_number: int, db: Session):
     return delta / count
 
 
-
 def get_all_student_average_leave_time_in_department(id: int, num: int, db: Session):
     data = []
     for student in db.query(models.Student).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(
@@ -215,20 +222,22 @@ def get_all_student_average_leave_time_in_department(id: int, num: int, db: Sess
 
 
 def get_all_student_average_leave_time_in_class(id: int, num: int, db: Session):
-    data = []
-    for student in db.query(models.Student).filter(models.Student.class_id == id).all():
-        avg_leave_time = datetime.timedelta(seconds=get_student_average_leave_time(student.stu_number, db))
-        data.append(schemas.StudentLeaveSchoolTimeAvg(stu_number=student.stu_number, stu_name=student.stu_name,
-                                                      average_leave_time=str(avg_leave_time)))
-        data.sort(key=lambda x: x.average_leave_time, reverse=True)
-    if len(data) > num:
-        return data[:num]
-    else:
-        return data
+    list = []
+    for class_ in db.query(models.Class).filter(models.Class.department_id == id).all():
+        data = []
+        for student in db.query(models.Student).filter(models.Student.class_id == class_.id).all():
+            avg_leave_time = datetime.timedelta(seconds=get_student_average_leave_time(student.stu_number, db))
+            data.append(schemas.StudentLeaveSchoolTimeAvgTwo(stu_number=student.stu_number, stu_name=student.stu_name,
+                                                             average_time=str(avg_leave_time)))
+            data.sort(key=lambda x: x.average_time, reverse=True)
+        if len(data) > num:
+            data = data[:num]
+        list.append({"class_id": class_.id, "stu": data})
+    return list
 
 
 # 获取离校学生信息
-def get_all_student_leave_school_info_of_department(id:int, db: Session):
+def get_all_student_leave_school_info_of_department(id: int, db: Session):
     list = []
     for student in db.query(models.Student).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(
             models.Class.department_id == id))).all():
@@ -246,7 +255,7 @@ def get_all_student_leave_school_info_of_department(id:int, db: Session):
 
 
 # 获取离校超过一天的学生信息
-def get_all_student_leave_school_more_than_one_day_info(id:int,db: Session):
+def get_all_student_leave_school_more_than_one_day_info(id: int, db: Session):
     list = []
     for student in db.query(models.Student).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(
             models.Class.department_id == id))).all():
@@ -254,16 +263,16 @@ def get_all_student_leave_school_more_than_one_day_info(id:int,db: Session):
             .order_by(models.InOutCampus.date.desc()).first()
         if last_in_out_info is not None and last_in_out_info.status == '离校':
             if datetime.datetime.now().timestamp() - last_in_out_info.date.timestamp() > 24 * 60 * 60:
-                infos = db.query(models.ApplyForLeaveSchool)\
+                infos = db.query(models.ApplyForLeaveSchool) \
                     .filter(student.stu_number == models.ApplyForLeaveSchool.stu_number,
-                                                            models.ApplyForLeaveSchool.out_date_flag == 0).all()
+                            models.ApplyForLeaveSchool.out_date_flag == 0).all()
                 applys = set()
                 for info in infos:
                     applys.add(info.pipeline_id)
                 flag = False
                 for apply in applys:
                     if db.query(models.ApplyForLeaveSchool).filter(models.ApplyForLeaveSchool.pipeline_id == apply,
-                                                                  models.ApplyForLeaveSchool.status== '已拒绝').first() is  None:
+                                                                   models.ApplyForLeaveSchool.status == '已拒绝').first() is None:
                         flag = True
                         break
                 if flag:
@@ -277,7 +286,7 @@ def get_all_student_leave_school_more_than_one_day_info(id:int,db: Session):
 
 
 # 提交申请但未离校的学生信息
-def get_all_student_apply_for_leave_school_but_not_leave_school_info(id:int,db: Session):
+def get_all_student_apply_for_leave_school_but_not_leave_school_info(id: int, db: Session):
     list = []
     for student in db.query(models.Student).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(
             models.Class.department_id == id))).all():
@@ -292,7 +301,7 @@ def get_all_student_apply_for_leave_school_but_not_leave_school_info(id:int,db: 
                 applys.add(info.pipeline_id)
             for apply in applys:
                 if db.query(models.ApplyForLeaveSchool).filter(models.ApplyForLeaveSchool.pipeline_id == apply,
-                                                              models.ApplyForLeaveSchool.status == '已拒绝').first() is None:
+                                                               models.ApplyForLeaveSchool.status == '已拒绝').first() is None:
                     list.append(schemas.StudentInfo(stu_number=student.stu_number, stu_name=student.stu_name,
                                                     phone_number=student.phone_number, email=student.email,
                                                     address=student.address, family_address=student.family_address,
@@ -303,12 +312,8 @@ def get_all_student_apply_for_leave_school_but_not_leave_school_info(id:int,db: 
     return schemas.AllStudentInfo(list=list, total=len(list))
 
 
-
-
-
-
 # 过去n天的一直在校的学生(按照学院)
-def get_all_student_stay_in_school_more_than_n_days_info_in_department_level(id:int,days: int,db: Session):
+def get_all_student_stay_in_school_more_than_n_days_info_in_department_level(id: int, days: int, db: Session):
     list = []
     for student in db.query(models.Student).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(
             models.Class.department_id == id))).all():
@@ -320,9 +325,8 @@ def get_all_student_stay_in_school_more_than_n_days_info_in_department_level(id:
     return list
 
 
-
 # 过去n天的一直在校的学生(按照班级)
-def get_all_student_stay_in_school_more_than_n_days_info_in_class_level(id:int,days: int,db: Session):
+def get_all_student_stay_in_school_more_than_n_days_info_in_class_level(id: int, days: int, db: Session):
     list = []
     for class_ in db.query(models.Class).filter(models.Class.department_id == id).all():
         class_id = class_.id
@@ -338,7 +342,7 @@ def get_all_student_stay_in_school_more_than_n_days_info_in_class_level(id:int,d
 
 
 # 连续n天健康日报相同
-def get_all_student_health_report_same_for_n_days_info_in_department_level(id:int,days: int,db: Session):
+def get_all_student_health_report_same_for_n_days_info_in_department_level(id: int, days: int, db: Session):
     list = []
     for student in db.query(models.Student).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(
             models.Class.department_id == id))).all():
@@ -354,9 +358,10 @@ def get_all_student_health_report_same_for_n_days_info_in_department_level(id:in
             else:
                 for i in range(len(last_health_reports) - days + 1):
                     flag = True
-                    for j in range(i+1,days+i):
-                        #计算两个健康日报report_time时间的timestamp差值
-                        if int(last_health_reports[i].report_time.timestamp()/60) - int(last_health_reports[i+j].report_time.timestamp()/60) != 24 * 60 * j:
+                    for j in range(i + 1, days + i):
+                        # 计算两个健康日报report_time时间的timestamp差值
+                        if int(last_health_reports[i].report_time.timestamp() / 60) - int(
+                                last_health_reports[i + j].report_time.timestamp() / 60) != 24 * 60 * j:
                             flag = False
                             break
                     if flag:
@@ -369,10 +374,13 @@ def get_all_student_health_report_same_for_n_days_info_in_department_level(id:in
     return schemas.AllStudentInfo(list=list, total=len(list))
 
 
-
 # 过去days天一个学院学生出入学校最多的校区
-def get_most_in_out_campus_in_department(id:int,days:int,db: Session):
-    list = db.query(models.InOutCampus.campus_id,func.count('*').label('count')).filter(models.InOutCampus.stu_number.in_(db.query(models.Student.stu_number).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(models.Class.department_id == id))))).filter(models.InOutCampus.date > datetime.datetime.now() - datetime.timedelta(days=days)).group_by(models.InOutCampus.campus_id).all()
+def get_most_in_out_campus_in_department(id: int, days: int, db: Session):
+    list = db.query(models.InOutCampus.campus_id, func.count('*').label('count')).filter(
+        models.InOutCampus.stu_number.in_(db.query(models.Student.stu_number).filter(
+            models.Student.class_id.in_(db.query(models.Class.id).filter(models.Class.department_id == id))))).filter(
+        models.InOutCampus.date > datetime.datetime.now() - datetime.timedelta(days=days)).group_by(
+        models.InOutCampus.campus_id).all()
     # 找到最大的count 对应的campus_id
     max_count = 0
     campus_id = 1
@@ -380,18 +388,19 @@ def get_most_in_out_campus_in_department(id:int,days:int,db: Session):
         if i.count > max_count:
             max_count = i.count
             campus_id = i.campus_id
-    department_name = db.query(models.Department.department_name).filter(models.Department.id == id).first().department_name
-    return schemas.DepartmentMostStudentInOutCampus(department_name=department_name,campus_name=db.query(models.Campus).filter(models.Campus.id == campus_id).first().campus_name)
-
+    department_name = db.query(models.Department.department_name).filter(
+        models.Department.id == id).first().department_name
+    return schemas.DepartmentMostStudentInOutCampus(department_name=department_name,
+                                                    campus_name=db.query(models.Campus).filter(
+                                                        models.Campus.id == campus_id).first().campus_name)
 
 
 # 各个学院学生出入学校最多的校区
-def get_most_in_out_campus_in_school(days:int, db: Session):
+def get_most_in_out_campus_in_school(days: int, db: Session):
     list = []
     for department in db.query(models.Department).all():
-        list.append(get_most_in_out_campus_in_department(department.department_name,days,db))
+        list.append(get_most_in_out_campus_in_department(department.department_name, days, db))
     return list
-
 
 
 def handle_admin_apply(apply: schemas.ApplyPost, db: Session):
@@ -402,28 +411,50 @@ def handle_admin_apply(apply: schemas.ApplyPost, db: Session):
         status = "已拒绝"
         final_result = "不同意"
     if apply.type == '入校':
-        db.query(models.ApplyForEnterSchool).filter(models.ApplyForEnterSchool.pipeline_id == apply.pipeline_id,
-                                                    models.ApplyForEnterSchool.level == "院系管理员").update({
-            models.ApplyForEnterSchool.status: status,
-            models.ApplyForEnterSchool.final_suggestion: final_result,
-            models.ApplyForEnterSchool.handle_reason: apply.reason,
-            models.ApplyForEnterSchool.handle_time: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            models.ApplyForEnterSchool.suggestion: apply.suggestion
-        })
-        db.commit()
+        db.begin(subtransactions=True)
+        try:
+            db.query(models.ApplyForEnterSchool).filter(models.ApplyForEnterSchool.pipeline_id == apply.pipeline_id,
+                                                        models.ApplyForEnterSchool.level == "院系管理员").update({
+                models.ApplyForEnterSchool.status: status,
+                models.ApplyForEnterSchool.final_suggestion: final_result,
+                models.ApplyForEnterSchool.handle_reason: apply.reason,
+                models.ApplyForEnterSchool.handle_time: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                models.ApplyForEnterSchool.suggestion: apply.suggestion
+            })
+            db.commit()
+            if apply.result == "同意":
+                enter_apply = db.query(models.ApplyForEnterSchool).filter(
+                    models.ApplyForEnterSchool.pipeline_id == apply.pipeline_id).first()
+                i = 0
+                for campus in db.query(models.Campus).all():
+                    i+=1
+                    crud.create_student_campus(db=db, student_campus=schemas.StudentCampus(
+                        id=int(datetime.datetime.now().timestamp()) + i,
+                        student_id=enter_apply.stu_number,
+                        campus_id=campus.id
+                    ))
+        except Exception as e:
+            db.rollback()
+            print(e)
+            raise Exception
     else:
-        print('*********************************')
-        print(apply)
-        print(db.query(models.ApplyForLeaveSchool).filter(models.ApplyForLeaveSchool.pipeline_id == apply.pipeline_id,
-                                                    models.ApplyForLeaveSchool.level == "院系管理员").all())
-        print('*********************************')
-        db.query(models.ApplyForLeaveSchool).filter(models.ApplyForLeaveSchool.pipeline_id == apply.pipeline_id,
-                                                    models.ApplyForLeaveSchool.level == "院系管理员").update({
-            models.ApplyForLeaveSchool.status: status,
-            models.ApplyForLeaveSchool.final_suggestion: final_result,
-            models.ApplyForLeaveSchool.handle_reason: apply.reason,
-            models.ApplyForLeaveSchool.handle_time: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            models.ApplyForLeaveSchool.suggestion: apply.suggestion
-        })
-        db.commit()
-
+        db.begin(subtransactions=True)
+        try:
+            db.query(models.ApplyForLeaveSchool).filter(models.ApplyForLeaveSchool.pipeline_id == apply.pipeline_id,
+                                                        models.ApplyForLeaveSchool.level == "院系管理员").update({
+                models.ApplyForLeaveSchool.status: status,
+                models.ApplyForLeaveSchool.final_suggestion: final_result,
+                models.ApplyForLeaveSchool.handle_reason: apply.reason,
+                models.ApplyForLeaveSchool.handle_time: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                models.ApplyForLeaveSchool.suggestion: apply.suggestion
+            })
+            db.commit()
+            if apply.result == "同意":
+                leave_apply = db.query(models.ApplyForLeaveSchool).filter(
+                    models.ApplyForLeaveSchool.pipeline_id == apply.pipeline_id).first()
+                db.query(models.StudentCampus).filter(
+                    models.StudentCampus.student_id == leave_apply.stu_number).delete()
+                db.commit()
+        except Exception as e:
+            db.rollback()
+            raise Exception

@@ -230,3 +230,16 @@ def modify_student_info(student:schemas.StudentInfo,db: Session):
         models.Student.id_card_number:student.id_card_number
     })
     db.commit()
+
+
+
+def get_report_student_health(id:int,db: Session):
+    list = db.query(models.HealthReport).filter(models.HealthReport.stu_number==id).order_by(models.HealthReport.report_time.desc()).limit(7).all()
+    new_info_list=[]
+    for info in list:
+        new_info = schemas.HealthReportInfo(date=info.date.strftime('%Y-%m-%d'), temperature=info.temperature,
+                                            location=info.location,
+                                            report_time=info.report_time.strftime('%Y-%m-%d %H:%M:%S'),
+                                            other_message=info.other_message)
+        new_info_list.append(new_info)
+    return new_info_list

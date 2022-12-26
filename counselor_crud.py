@@ -485,7 +485,7 @@ def handle_class_apply(apply: schemas.ApplyPost, db: Session):
                 models.ApplyForEnterSchool.pipeline_id == apply.pipeline_id,
                 models.ApplyForEnterSchool.level == "辅导员").first()
 
-            add_student_enter_apply(schemas.AddNewEnterSchool(
+            add_student_enter_apply_old_pipeline_id(schemas.AddNewEnterSchool(
                 class_id=enter_apply.handlers_id,
                 pipeline_id=enter_apply.pipeline_id,
                 stu_number=enter_apply.stu_number,
@@ -508,7 +508,7 @@ def handle_class_apply(apply: schemas.ApplyPost, db: Session):
             leave_apply = db.query(models.ApplyForLeaveSchool).filter(
                 models.ApplyForLeaveSchool.pipeline_id == apply.pipeline_id,
                 models.ApplyForLeaveSchool.level == "辅导员").first()
-            add_student_leave_apply(schemas.AddNewLeaveSchool(
+            add_student_leave_apply_old_pipeline_id(schemas.AddNewLeaveSchool(
                 class_id=leave_apply.handlers_id,
                 pipeline_id=leave_apply.pipeline_id,
                 stu_number=leave_apply.stu_number,
@@ -544,6 +544,47 @@ def add_student_leave_apply(leave_apply:schemas.AddNewLeaveSchool,db: Session):
         handlers=handler.teacher_name
     ))
 
+def add_student_leave_apply_old_pipeline_id(leave_apply:schemas.AddNewLeaveSchool,db: Session):
+    #得到当前院系管理员
+    handler=db.query(models.DepartmentAdmin).filter(models.DepartmentAdmin.department_id== db.query(models.Counselor).filter(models.Counselor.id==leave_apply.class_id).first().department_id).first()
+    crud.create_out_campus_application(db,schemas.ApplyForLeaveSchoolSchema(
+        stu_number=leave_apply.stu_number,
+        leave_reason=leave_apply.leave_reason,
+        handle_reason="",
+        status="待审核",
+        level="院系管理员",
+        handlers_id=handler.id,
+        submit_time=leave_apply.submit_time,
+        pipeline_id=leave_apply.pipeline_id,
+        suggestion="",
+        final_suggestion="",
+        out_date_flag=0,
+        estimated_return_time=leave_apply.estimated_return_time,
+        destination=leave_apply.destination,
+        departure_date=leave_apply.departure_date,
+        handlers=handler.teacher_name
+    ))
+
+
+def add_student_enter_apply_old_pipeline_id(enter_apply:schemas.AddNewEnterSchool,db: Session):
+    #得到当前学生辅导员的id
+    handler=db.query(models.DepartmentAdmin).filter(models.DepartmentAdmin.department_id== db.query(models.Counselor).filter(models.Counselor.id==enter_apply.class_id).first().department_id).first()
+    crud.create_in_campus_application(db,schemas.ApplyForEnterSchoolSchema(
+        stu_number=enter_apply.stu_number,
+        return_school_reason=enter_apply.return_school_reason,
+        handle_reason="",
+        location_of_seven_days=enter_apply.location_of_seven_days,
+        estimated_return_school_time=enter_apply.estimated_return_school_time,
+        status="待审核",
+        level="院系管理员",
+        handlers_id=handler.id,
+        submit_time=enter_apply.submit_time,
+        pipeline_id=enter_apply.pipeline_id,
+        suggestion="",
+        final_suggestion="",
+        out_date_flag=0,
+        handlers=handler.teacher_name
+    ))
 
 def add_student_enter_apply(enter_apply:schemas.AddNewEnterSchool,db: Session):
     #得到当前学生辅导员的id

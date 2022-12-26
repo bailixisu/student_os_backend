@@ -238,7 +238,10 @@ class StudentLeaveSchoolTimeAvg(BaseModel):
     stu_name: str
     average_leave_time: str
 
-
+class StudentLeaveSchoolTimeAvgTwo(BaseModel):
+    stu_number: int
+    stu_name: str
+    average_time: str
 # 学生未通过的申请
 class StudentLeaveSchoolNoPassOfNDays(BaseModel):
     total: int

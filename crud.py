@@ -632,7 +632,7 @@ def get_all_student_right_of_campus_of_department(id:int,db: Session):
 
 def get_all_student_leave_school_of_department(id:int,db: Session):
     data = []
-    for leave_school in db.query(models.ApplyForLeaveSchool).filter(models.ApplyForLeaveSchool.stu_number.in_(db.query(models.Student.stu_number).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(models.Class.department_id == id))))).all():
+    for leave_school in db.query(models.ApplyForLeaveSchool).filter(models.ApplyForLeaveSchool.stu_number.in_(db.query(models.Student.stu_number).filter(models.Student.class_id.in_(db.query(models.Class.id).filter(models.Class.department_id == id))))).filter(models.ApplyForLeaveSchool.level == '院系管理员').all():
         if leave_school.handle_time is None:
             handle_time = ''
         else:
